@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fast and Safe YouTube Video Downloader</title>
+    <style>
+        body {
+            background-color: #00008B;
+            font-family: Arial, sans-serif;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        h1 {
+            font-family: 'Arial', sans-serif;
+            font-size: 2.5em;
+            margin-bottom: 20px;
+        }
+
+        .container {
+            text-align: center;
+            max-width: 800px;
+            width: 100%;
+        }
+
+        .url-input, .product-key-input, .name-input {
+            width: calc(100% - 40px); /* Adjusting for padding */
+            padding: 15px;
+            font-size: 1.2em;
+            border-radius: 25px;
+            border: none;
+            margin-bottom: 20px;
+        }
+
+        .thumbnail {
+            margin-top: 20px;
+            display: none;
+        }
+
+        .thumbnail img {
+            width: 100%;
+            border-radius: 15px;
+        }
+
+        .video-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 20px;
+        }
+
+        .video-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            width: 100%;
+        }
+
+        .video-item img {
+            width: 300px; /* Increased thumbnail size */
+            height: auto;
+            border-radius: 10px;
+            margin-right: 20px;
+            cursor: pointer;
+        }
+
+        .resolution-select {
+            padding: 10px; /* Increased padding */
+            font-size: 1em;
+            border-radius: 25px;
+            border: none;
+            margin-right: 10px;
+        }
+
+        .btn {
+            padding: 10px 20px; /* Increased padding */
+            font-size: 1.2em; /* Increased font size */
+            border: none;
+            border-radius: 25px;
+            background-color: #00FF00;
+            color: #00008B;
+            cursor: pointer;
+        }
+
+        .btn-progress {
+            background-color: #00FF00;
+            width: 0%;
+            transition: width 1s ease-in-out;
+        }
+
+        #player {
+            margin-top: 20px;
+            display: none;
+        }
+
+        #welcome-message {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 1.2em;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Fast and Safe YouTube Video Downloader</h1>
+    <div id="welcome-message" class="hidden"></div>
+    <div id="product-key-container" class="container">
+        <input type="text" id="productKeyInput" class="product-key-input" placeholder="Enter Product Key">
+        <button class="btn" onclick="validateProductKey()">Validate</button>
+        <div id="productKeyError" class="hidden">
+            To get the product key, contact us <a href="https://web.facebook.com/afhamwtalaam" target="_blank">here</a>.
+        </div>
+    </div>
+    <div id="name-container" class="container hidden">
+        <input type="text" id="nameInput" class="name-input" placeholder="Enter Your Name">
+        <button class="btn" onclick="saveName()">Submit</button>
+    </div>
+    <div id="main-container" class="container hidden">
+        <input type="text" id="urlInput" class="url-input" placeholder="Enter YouTube video or playlist URL">
+        <div id="videoContainer" class="video-container"></div>
+        <div id="player"></div>
+    </div>
+    <script>
+        const urlInput = document.getElementById('urlInput');
+        const videoContainer = document.getElementById('videoContainer');
+        const player = document.getElementById('player');
+        const productKeyInput = document.getElementById('productKeyInput');
+        const productKeyContainer = document.getElementById('product-key-container');
+        const productKeyError = document.getElementById('productKeyError');
+        const nameContainer = document.getElementById('name-container');
+        const nameInput = document.getElementById('nameInput');
+        const mainContainer = document.getElementById('main-container');
+        const welcomeMessage = document.getElementById('welcome-message');
+
+        const VALID_PRODUCT_KEY = 'BRJX4-MD7PL-X9Q5R-WT8V3-HY6K9';
+
+        function validateProductKey() {
+            const productKey = productKeyInput.value;
+            if (productKey === VALID_PRODUCT_KEY) {
+                productKeyContainer.classList.add('hidden');
+                nameContainer.classList.remove('hidden');
+            } else {
+                productKeyError.classList.remove('hidden');
+            }
+        }
+
+        function saveName() {
+            const name = nameInput.value;
+            if (name) {
+                nameContainer.classList.add('hidden');
+                mainContainer.classList.remove('hidden');
+                welcomeMessage.textContent = `Welcome: ${name}`;
+                welcomeMessage.classList.remove('hidden');
+            }
+        }
+
+        async function fetchPlaylistInfo() {
+            const url = urlInput.value;
+            if (url && url.includes('playlist?list=')) {
+                const playlistId = url.split('list=')[1];
+                const response = await fetch(`/get_playlist_info?playlistId=${playlistId}`);
+                const data = await response.json();
+                if (data.videos) {
+                    videoContainer.innerHTML = '';
+                    data.videos.forEach(video => {
+                        const videoItem = document.createElement('div');
+                        videoItem.className = 'video-item';
+                        videoItem.innerHTML = `
+                            <img src="${video.thumbnail}" alt="Video Thumbnail" onclick="playVideo('${video.url}')">
+                            <select class="resolution-select" id="resolution-${video.id}">
+                                <option value="240p">240p</option>
+                                <option value="360p">360p</option>
+                                <option value="480p">480p</option>
+                                <option value="720p">720p</option>
+                                <option value="1080p">1080p</option>
+                            </select>
+                            <button class="btn" onclick="downloadVideo('${video.id}', '${video.url}')">Download</button>
+                        `;
+                        videoContainer.appendChild(videoItem);
+                    });
+                }
+            } else if (url && url.includes('watch?v=')) {
+                const response = await fetch(`/get_thumbnail?url=${encodeURIComponent(url)}`);
+                const data = await response.json();
+                videoContainer.innerHTML = '';
+                if (data.thumbnail) {
+                    const videoItem = document.createElement('div');
+                    videoItem.className = 'video-item';
+                    videoItem.innerHTML = `
+                        <img src="${data.thumbnail}" alt="Video Thumbnail" onclick="playVideo('${url}')">
+                        <select class="resolution-select" id="resolution-single">
+                            <option value="240p">240p</option>
+                            <option value="360p">360p</option>
+                            <option value="480p">480p</option>
+                            <option value="720p">720p</option>
+                            <option value="1080p">1080p</option>
+                        </select>
+                        <button class="btn" onclick="downloadVideo('single', '${url}')">Download</button>
+                    `;
+                    videoContainer.appendChild(videoItem);
+                }
+            }
+        }
+
+        async function downloadVideo(videoId, videoUrl) {
+            const resolutionSelectId = videoId === 'single' ? 'resolution-single' : `resolution-${videoId}`;
+            const resolution = document.getElementById(resolutionSelectId).value;
+            window.location.href = `/download_video?url=${encodeURIComponent(videoUrl)}&resolution=${resolution}`;
+        }
+
+        function playVideo(videoUrl) {
+            const videoId = videoUrl.split('v=')[1].split('&')[0];
+            player.innerHTML = `<iframe width="560" height="315" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+            player.style.display = 'block';
+        }
+
+        urlInput.addEventListener('input', fetchPlaylistInfo);
+    </script>
+</body>
+</html>
